@@ -1,0 +1,63 @@
+---
+title: "EDA-Practice-2025-03-25"
+output: pdf_document
+date: "2025-03-25"
+---
+
+```{r}
+
+# load the relevant libraries
+library(dplyr)
+library(tidyverse)
+library(skimr)
+
+#read csv_file
+df <- read.csv("world_population.csv")
+
+# let's observe the data
+# method 1 using the dplyr package 
+head(df)
+
+#method 2 using the skimr 
+skim(df)
+```
+
+```{r}
+#we can rearrange the data in ascending/descending order
+df %>% arrange(desc(X2022.Population))
+```
+
+```{r}
+#check for null values in each column
+skim(df) %>% filter(n_missing > 0) %>% select(skim_variable, n_missing)
+```
+
+```{r}
+#lets see the count of all unique values by column
+df %>% summarise(across(everything(), ~ n_distinct(.))) %>% t() %>% as.data.frame()
+
+```
+
+```{r}
+#lets observe the correlation between variables
+#sapply(df, is.numeric) checks each column of the dataframe df to see if it is numeric. (base r)
+#we add the sub index "use = "complete.obs"" to omit NA values. Otherwise, the correlation will output NA across
+corr_matrix <- df[sapply(df, is.numeric)] %>% cor(use = "complete.obs")
+
+library(ggcorrplot)
+corr_matrix %>% ggcorrplot(lab = TRUE) 
+```
+
+```{r}
+#lets do some grouping
+df2 <- df %>% group_by(Continent) %>% select(X1970.Population, X1980.Population, X1990.Population, X2000.Population, X2010.Population, X2015.Population, X2020.Population, X2022.Population) %>% summarise(across(everything(), mean, na.rm = TRUE)) %>% arrange(desc(X2022.Population))
+
+df_long <- df2 %>% pivot_longer(cols = starts_with("X"), 
+                      names_to = "Year",
+                      values_to = "Value")
+```
+
+```{r}
+#lets plot
+df_long %>% ggplot(aes(x = Year, y = Value, group = Continent, color = Continent)) + geom_line()
+```
