@@ -3,7 +3,7 @@ library(tidyverse)
 library(readr)
 
 # Load the data
-person <- read_csv("2025-08-02/FARS2023NationalCSV/person.zip")
+person <- read_csv("2025-08-02/person.zip")
 
 # Select columns related to motorcyclist fatalities and filter out all non two-wheeled vehicles
 person <- person %>% 
