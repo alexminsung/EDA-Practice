@@ -3,8 +3,8 @@ title: "EDA-Practice-2025-07-20"
 author: "Minsung Kim"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 
