@@ -44,7 +44,6 @@ lead <- death_count %>% select(type, rank) %>% pivot_wider(names_from = type, va
 
 # Separate df for percentage in `pivot_wide` form
 percentage_death_by_vehicle <- death_count %>% select(type, percentage) %>% pivot_wider(names_from = type, values_from = percentage)
-clipr::write_clip(percentage_death_by_vehicle)
 
 # Separate df containing information for pie-chart in `pivot_wide` form
 percentage_death <- death_count %>% mutate(percentage = case_when(
