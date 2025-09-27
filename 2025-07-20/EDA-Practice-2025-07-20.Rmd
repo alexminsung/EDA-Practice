@@ -65,24 +65,21 @@ df_trimmed <- bind_rows(df_NEED, df_WANT, df_MOM) %>% select(Transaction.Date, C
 # rearrange the data so that each spending type is given their own columns and only one row exists per date. 
 df_trimmed <- df_trimmed %>% pivot_wider(names_from = Category, values_from = Cumulative.Value)
 
+# create a version of the trimmed data with overall spending and overall income
+df_plot2 <- df_trimmed %>% mutate(SPENDING = MOM + NEEDS + WANTS) 
+df_plot2 <- full_join(df_plot2, df_INCOME, by = join_by(Transaction.Date))
+# rename cumulative Income to INCOME
+df_plot2 <- df_plot2 %>% rename(INCOME = cum_value) %>% arrange(Transaction.Date)
 
-# replace first NA values for `MOM` and `WANTS` with a baseline 0. This is not necessary for 'NEEDS' column as it already starts from 4
-df_trimmed$MOM[1] <- 0
-df_trimmed$WANTS[1] <- 0
+# repeat the same steps as above to apply a baseline income of 0 and replace all NA values with the previous non-NA observation
+df_plot2$NEEDS[1] <- 0
+df_plot2$WANTS[1] <- 0
+df_plot2$MOM[1] <- 0
 
 # replace all following NA values from each column with the previous non-NA observation using `na.locf` (last observation carried forward)
 df_trimmed$MOM <- na.locf(df_trimmed$MOM)
 df_trimmed$NEEDS <- na.locf(df_trimmed$NEEDS)
 df_trimmed$WANTS <- na.locf(df_trimmed$WANTS)
-
-# create a version of the trimmed data with overall spending and overall income
-df_plot2 <- df_trimmed %>% mutate(SPENDING = MOM + NEEDS + WANTS) 
-df_plot2 <- left_join(df_plot2, df_INCOME, by = join_by(Transaction.Date)) 
-# rename cumulative Income to INCOME
-df_plot2 <- df_plot2 %>% rename(INCOME = cum_value)
-
-# repeat the same steps as above to apply a baseline income of 0 and replace all NA values with the previous non-NA observation
-df_plot2$INCOME[1] <- 0
 df_plot2$INCOME <- na.locf(df_plot2$INCOME)
 
 
@@ -95,12 +92,12 @@ time_series_df_plot2 <- xts(df_plot2[,c(-1:-4)], order.by = as_date(df_plot2$Tra
 
 ```{r}
 # plot interactive plot of spending from 2023 June to 2025 June.
-dygraph(time_series_df, main = "Spending Trend from June 2023 to June 2025") %>% dyAxis("y", label = "Cumulative Spending (CAD)") %>% dyLegend(width = 475) %>% dyRangeSelector() %>% dyCSS("dygraph.css")
+dygraph(time_series_df, main = "Spending Trend from June 2023 to September 2025") %>% dyAxis("y", label = "Cumulative Spending (CAD)") %>% dyLegend(width = 475) %>% dyRangeSelector() %>% dyCSS("dygraph.css")
 ```
 
 ```{r}
 # plot overall spending vs overall income
-dygraph(time_series_df_plot2, main = "Overall Spending vs Income (2023-06 to 2025-06)") %>% dyAxis("y", label = "Cumulative Spending (CAD)") %>% dyLegend(show = "follow") %>% dyRangeSelector() %>% dyCSS("dygraph.css") %>% dySeries("INCOME", fillGraph = TRUE, color = "green") %>% dySeries("SPENDING", fillGraph = TRUE, color = "red") 
+dygraph(time_series_df_plot2, main = "Overall Spending vs Income (2023-06 to 2025-09)") %>% dyAxis("y", label = "Cumulative Spending (CAD)") %>% dyLegend(show = "follow") %>% dyRangeSelector() %>% dyCSS("dygraph.css") %>% dySeries("INCOME", fillGraph = TRUE, color = "green") %>% dySeries("SPENDING", fillGraph = TRUE, color = "red") 
 
 ```
 
