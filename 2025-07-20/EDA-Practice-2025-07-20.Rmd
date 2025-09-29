@@ -50,42 +50,49 @@ df <- df %>% mutate_at(vars(Debit, Credit), ~replace(., is.na(.), 0))
 # combine the debit and credit columns into one column of absolute values called 'value'
 df <- df %>% mutate(value = abs(Debit + Credit))
 
-# obtain cumulative spending values for 3 relevant categories. Note that I haven't included 'SAVINGS' and 'INCOME' as I am only interested in spending patterns for the first graph
-
 # create a new column called 'cum_sum' which takes the values from the `value` column and obtains a cumulative sum. Afterwards, select only the `last` date row if there are multiple identical date rows for a given spending type. All other identical date rows (for a given spending type) are removed since the last row shows the final cumulative value.
 df_NEED <- df %>% filter(Category == "NEEDS") %>% mutate(cum_value = round(cumsum(value),2)) %>% group_by(Transaction.Date) %>% summarise_all(last)
 df_WANT <- df %>% filter(Category == "WANTS") %>% mutate(cum_value = round(cumsum(value),2)) %>% group_by(Transaction.Date) %>% summarise_all(last)
 df_MOM <- df %>% filter(Category == "MOM") %>% mutate(cum_value = round(cumsum(value),2)) %>% group_by(Transaction.Date) %>% summarise_all(last)
-# create a separate df containing only `INCOME` data. Trim the columns so only cumulative income and Transaction date (used as keys for JOIN function later)
-df_INCOME <- df %>% filter(Category == "INCOME") %>% mutate(cum_value = round(cumsum(value),2)) %>% group_by(Transaction.Date) %>% summarise_all(last) %>% select(Transaction.Date, cum_value)
 
 # combine the three datasets using row bind and rearrange the trimmed dataset by ascending date order. Remove all redundant columns.
 df_trimmed <- bind_rows(df_NEED, df_WANT, df_MOM) %>% select(Transaction.Date, Category, Cumulative.Value = cum_value) %>% arrange(Transaction.Date) 
 
-# rearrange the data so that each spending type is given their own columns and only one row exists per date. 
+# rearrange the data so that each spending type is given their own columns per date. 
 df_trimmed <- df_trimmed %>% pivot_wider(names_from = Category, values_from = Cumulative.Value)
 
-# create a version of the trimmed data with overall spending and overall income
-df_plot2 <- df_trimmed %>% mutate(SPENDING = MOM + NEEDS + WANTS) 
-df_plot2 <- full_join(df_plot2, df_INCOME, by = join_by(Transaction.Date))
-# rename cumulative Income to INCOME
-df_plot2 <- df_plot2 %>% rename(INCOME = cum_value) %>% arrange(Transaction.Date)
+# fill in the NA values by referencing the previous non-NA value and carrying it forward
+# set a baseline of 0 for columns in the first row missing values
+df_trimmed$WANTS[1] <- 0
+df_trimmed$MOM[1] <- 0
 
-# repeat the same steps as above to apply a baseline income of 0 and replace all NA values with the previous non-NA observation
-df_plot2$NEEDS[1] <- 0
-df_plot2$WANTS[1] <- 0
-df_plot2$MOM[1] <- 0
-
-# replace all following NA values from each column with the previous non-NA observation using `na.locf` (last observation carried forward)
+# carry the previous value foward for every NA values
 df_trimmed$MOM <- na.locf(df_trimmed$MOM)
 df_trimmed$NEEDS <- na.locf(df_trimmed$NEEDS)
 df_trimmed$WANTS <- na.locf(df_trimmed$WANTS)
-df_plot2$INCOME <- na.locf(df_plot2$INCOME)
+```
 
+```{r}
+# create a separate df containing only `INCOME` data. Trim the columns so only cumulative income and Transaction date (used as keys for JOIN function later)
+df_INCOME <- df %>% filter(Category == "INCOME") %>% mutate(cum_value = round(cumsum(value),2)) %>% group_by(Transaction.Date) %>% summarise_all(last) %>% select(Transaction.Date, cum_value)
+
+# create a separate column for all spending (MOM + NEEDS + WANTS)
+df_trimmed <- df_trimmed %>% mutate(SPENDING = MOM + NEEDS + WANTS)
+
+# combine the truncated data with the income data for overall spending vs income chart
+df_cum.spending <- full_join(select(df_trimmed, Transaction.Date, SPENDING), df_INCOME, by = join_by(Transaction.Date)) %>% 
+  rename(INCOME = cum_value) %>% arrange(Transaction.Date)
+
+# repeat the same steps as above to apply a baseline income of 0 and replace all NA values with the previous non-NA observation
+df_cum.spending$SPENDING[1] <- 0
+
+# replace all following NA values from each column with the previous non-NA observation using `na.locf` (last observation carried forward)
+df_cum.spending$INCOME <- na.locf(df_cum.spending$INCOME)
+df_cum.spending$SPENDING <- na.locf(df_cum.spending$SPENDING)
 
 # convert df into xts time-series format. The original `Transaction.Date` column is removed as xts function will automatically created a new date column using the date-converted `df_trimmed$Transaction.Date` following the order.by parameter.
 time_series_df <- xts(df_trimmed[,-1], order.by = as_date(df_trimmed$Transaction.Date))
-time_series_df_plot2 <- xts(df_plot2[,c(-1:-4)], order.by = as_date(df_plot2$Transaction.Date))
+time_series_df_cum.spending <- xts(df_cum.spending[, -1], order.by = as_date(df_cum.spending$Transaction.Date))
 ```
 
 ### Viz
@@ -97,7 +104,7 @@ dygraph(time_series_df, main = "Spending Trend from June 2023 to September 2025"
 
 ```{r}
 # plot overall spending vs overall income
-dygraph(time_series_df_plot2, main = "Overall Spending vs Income (2023-06 to 2025-09)") %>% dyAxis("y", label = "Cumulative Spending (CAD)") %>% dyLegend(show = "follow") %>% dyRangeSelector() %>% dyCSS("dygraph.css") %>% dySeries("INCOME", fillGraph = TRUE, color = "green") %>% dySeries("SPENDING", fillGraph = TRUE, color = "red") 
+dygraph(time_series_df_cum.spending, main = "Overall Spending vs Income (2023-06 to 2025-09)") %>% dyAxis("y", label = "Cumulative Spending (CAD)") %>% dyLegend(show = "follow") %>% dyRangeSelector() %>% dyCSS("dygraph.css") %>% dySeries("INCOME", fillGraph = TRUE, color = "green") %>% dySeries("SPENDING", fillGraph = TRUE, color = "red") 
 
 ```
 
